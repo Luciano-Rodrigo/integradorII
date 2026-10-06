@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { ensureDatabase, pool } from "@/lib/db";
 import { setSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    await ensureDatabase();
     const { email, password } = await request.json();
     const result = await pool.query("SELECT id, name, email, role, password_hash FROM users WHERE email = $1", [email?.trim().toLowerCase()]);
     const user = result.rows[0];

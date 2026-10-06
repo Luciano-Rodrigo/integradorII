@@ -9,6 +9,9 @@
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--background); color:var(--foreground); font-family:Arial,Helvetica,sans-serif; }
 button,input { font:inherit; }
+.field { display:block; font-size:.875rem; font-weight:700; color:#3d6659; }
+.field input,.field textarea { display:block; width:100%; margin-top:.375rem; border:1px solid #d3e4dc; border-radius:.75rem; background:#fff; padding:.65rem .75rem; font-weight:400; outline:none; }
+.field input:focus,.field textarea:focus { border-color:#0b8a68; box-shadow:0 0 0 2px rgba(11,138,104,.12); }
 
 /* Leaflet uses large internal z-index values. This local stacking context keeps
    map tiles, markers and controls behind dialogs and the floating chat. */

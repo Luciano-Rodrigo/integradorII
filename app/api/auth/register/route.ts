@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { ensureDatabase, pool } from "@/lib/db";
 import { setSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    await ensureDatabase();
     const { name, email, password } = await request.json();
     if (!name?.trim() || !email?.trim() || typeof password !== "string" || password.length < 8) {
       return NextResponse.json({ error: "Informe nome, e-mail e uma senha com ao menos 8 caracteres." }, { status: 400 });

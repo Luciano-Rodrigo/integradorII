@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import { pool } from "@/lib/db";
+import { ensureDatabase, pool } from "@/lib/db";
 
 const COOKIE = "descarte_certo_session";
 const maxAge = 60 * 60 * 24 * 7;
@@ -36,6 +36,7 @@ export function verifySessionToken(value?: string) {
 export async function currentUser() {
   const token = verifySessionToken((await cookies()).get(COOKIE)?.value);
   if (!token) return null;
+  await ensureDatabase();
   const result = await pool.query("SELECT id, name, email, role FROM users WHERE id = $1", [token.id]);
   return result.rows[0] ?? null;
 }
