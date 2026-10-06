@@ -9,3 +9,7 @@
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--background); color:var(--foreground); font-family:Arial,Helvetica,sans-serif; }
 button,input { font:inherit; }
+
+/* Leaflet uses large internal z-index values. This local stacking context keeps
+   map tiles, markers and controls behind dialogs and the floating chat. */
+.leaflet-container { position: relative; z-index: 0; isolation: isolate; }
