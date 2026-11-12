@@ -6,6 +6,11 @@ function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function photos(value: unknown) {
+  const items = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
+  return items.slice(0, 4);
+}
+
 export async function GET() {
   const user = await currentUser();
   if (user?.role !== "admin") return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
@@ -28,21 +33,21 @@ export async function POST(request: Request) {
     const city = text(data.city);
     const latitude = Number(data.latitude);
     const longitude = Number(data.longitude);
-    const photoUrl = text(data.photoData);
+    const photoUrls = photos(data.photoData);
     const materials = Array.isArray(data.materials) ? data.materials.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
 
     if (!organizationName || !contactEmail || !phone || !address || !city || !materials.length || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
       return NextResponse.json({ error: "Preencha os dados obrigatórios, os materiais e as coordenadas válidas." }, { status: 400 });
     }
-    if (photoUrl && (!/^data:image\/(jpeg|png|webp);base64,/i.test(photoUrl) || photoUrl.length > 2_800_000)) {
-      return NextResponse.json({ error: "A foto deve ser JPG, PNG ou WebP e ter no máximo 2 MB." }, { status: 400 });
+    if (photoUrls.some((photo) => !/^data:image\/(jpeg|png|webp);base64,/i.test(photo) || photo.length > 2_800_000)) {
+      return NextResponse.json({ error: "As fotos devem ser JPG, PNG ou WebP e ter no máximo 2 MB cada." }, { status: 400 });
     }
 
     const result = await pool.query(
-      `INSERT INTO receptors (organization_name, contact_email, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website, photo_url, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      `INSERT INTO receptors (organization_name, contact_email, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website, photo_url, photo_urls, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
-      [organizationName, contactEmail, phone, address, city, latitude, longitude, materials, Boolean(data.offersPickup), text(data.pickupConditions) || null, text(data.openingHours) || "Horário não informado", text(data.website) || null, photoUrl || null, user.id],
+      [organizationName, contactEmail, phone, address, city, latitude, longitude, materials, Boolean(data.offersPickup), text(data.pickupConditions) || null, text(data.openingHours) || "Horário não informado", text(data.website) || null, photoUrls[0] || null, photoUrls, user.id],
     );
     return NextResponse.json({ receptor: result.rows[0] }, { status: 201 });
   } catch (error) {

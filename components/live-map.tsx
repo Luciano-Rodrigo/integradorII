@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 export type DisposalPlace = {
   id: string; name: string; address: string; lat: number; lng: number; materials: string[];
-  phone: string | null; website: string | null; photoUrl: string | null; hours: string; pickup: boolean; pickupConditions: string; source: string;
+  phone: string | null; website: string | null; photoUrl: string | null; photoUrls: string[]; hours: string; pickup: boolean; pickupConditions: string; source: string;
 };
 
 const LeafletMap = dynamic(() => import("./leaflet-map"), { ssr: false, loading: () => <div className="grid h-[380px] place-items-center bg-[#dbeee5] text-sm font-semibold text-[#5c786d] sm:h-[540px]">Carregando mapa…</div> });

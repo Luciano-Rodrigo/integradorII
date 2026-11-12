@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     await ensureDatabase();
     const registered = await pool.query(
-      `SELECT id, organization_name, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website, photo_url
+      `SELECT id, organization_name, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website, photo_url, photo_urls
        FROM receptors ORDER BY organization_name ASC`,
     );
     const places = registered.rows.map((receptor) => ({
@@ -27,7 +27,8 @@ export async function GET(request: Request) {
       materials: receptor.materials,
       phone: receptor.phone,
       website: receptor.website,
-      photoUrl: receptor.photo_url,
+      photoUrls: receptor.photo_urls?.length ? receptor.photo_urls : receptor.photo_url ? [receptor.photo_url] : [],
+      photoUrl: receptor.photo_urls?.[0] || receptor.photo_url || null,
       hours: receptor.opening_hours,
       pickup: receptor.offers_pickup,
       pickupConditions: receptor.pickup_conditions || "Coleta disponível; confirme as condições diretamente com o receptor.",

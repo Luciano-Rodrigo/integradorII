@@ -47,11 +47,14 @@ await pool.query(`
     opening_hours TEXT NOT NULL DEFAULT 'Horário não informado',
     website TEXT,
     photo_url TEXT,
+    photo_urls TEXT[] NOT NULL DEFAULT '{}',
     created_by UUID NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS receptors_location_idx ON receptors(latitude, longitude);
   ALTER TABLE receptors ADD COLUMN IF NOT EXISTS photo_url TEXT;
+  ALTER TABLE receptors ADD COLUMN IF NOT EXISTS photo_urls TEXT[] NOT NULL DEFAULT '{}';
+  UPDATE receptors SET photo_urls = ARRAY[photo_url] WHERE photo_url IS NOT NULL AND cardinality(photo_urls) = 0;
   CREATE TABLE IF NOT EXISTS app_migrations (
     name TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
