@@ -11,13 +11,27 @@ type User = { id: string; name: string; email: string; role: "user" | "admin" };
 const defaultCenter: [number, number] = [-19.9167, -43.9345];
 const materialOptions = ["Eletrônicos", "Baterias", "Celulares", "Computadores", "Cabos"];
 
+function distanceInKm([fromLat, fromLng]: [number, number], [toLat, toLng]: [number, number]) {
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const latitudeDelta = toRadians(toLat - fromLat);
+  const longitudeDelta = toRadians(toLng - fromLng);
+  const calculation = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(calculation), Math.sqrt(1 - calculation));
+}
+
+function formatDistance(distance: number) {
+  return distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(distance < 10 ? 1 : 0).replace(".", ",")} km`;
+}
+
 export default function Home() {
   const [center, setCenter] = useState<[number, number]>(defaultCenter);
   const [places, setPlaces] = useState<DisposalPlace[]>([]);
   const [selected, setSelected] = useState<DisposalPlace | null>(null);
   const [query, setQuery] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
   const [onlyPickup, setOnlyPickup] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [addressSearching, setAddressSearching] = useState(false);
   const [mapStatus, setMapStatus] = useState("Use sua localização para ver os pontos mais próximos.");
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -41,9 +55,10 @@ export default function Home() {
       const response = await fetch(`/api/places?lat=${location[0]}&lng=${location[1]}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setPlaces(data.places);
-      setSelected(data.places[0] ?? null);
-      setMapStatus(data.places.length ? `${data.places.length} receptor(es) cadastrado(s) próximo(s).` : "Ainda não há receptores cadastrados nesta região.");
+      const ranked = [...data.places].sort((a: DisposalPlace, b: DisposalPlace) => distanceInKm(location, [a.lat, a.lng]) - distanceInKm(location, [b.lat, b.lng]));
+      setPlaces(ranked);
+      setSelected(ranked[0] ?? null);
+      setMapStatus(ranked.length ? `${ranked.length} receptor(es) cadastrado(s). Mais próximo: ${ranked[0].name} a ${formatDistance(distanceInKm(location, [ranked[0].lat, ranked[0].lng]))}.` : "Ainda não há receptores cadastrados.");
     } catch (error) {
       setMapStatus(error instanceof Error ? error.message : "Não foi possível buscar os locais agora.");
     }
@@ -57,6 +72,20 @@ export default function Home() {
       () => { setMapStatus("Não foi possível obter sua localização. Verifique a permissão do navegador."); setLocating(false); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
+  }
+
+  async function searchAddress() {
+    if (addressQuery.trim().length < 3) { setMapStatus("Informe um endereço com rua, número e cidade."); return; }
+    setAddressSearching(true); setMapStatus("Localizando o endereço informado…");
+    try {
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(addressQuery.trim())}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      const location: [number, number] = [data.latitude, data.longitude];
+      setCenter(location); await loadPlaces(location);
+    } catch (error) {
+      setMapStatus(error instanceof Error ? error.message : "Não foi possível localizar esse endereço.");
+    } finally { setAddressSearching(false); }
   }
 
   const shown = useMemo(() => places.filter((place) => {
@@ -89,7 +118,7 @@ export default function Home() {
 
     <section id="inicio" className="mx-auto max-w-[1500px] px-4 pb-6 pt-6 sm:px-5 sm:pt-8 md:px-9 md:pt-11">
       <div className="mb-7 flex flex-col justify-between gap-4 lg:flex-row lg:items-end"><div><p className="mb-2 flex items-center gap-2 text-sm font-bold text-[#0d8a67]"><span className="size-2 rounded-full bg-[#0d8a67]"/> DESCARTE RESPONSÁVEL, PERTO DE VOCÊ</p><h1 className="max-w-2xl text-3xl font-black leading-[1.05] tracking-[-.04em] text-[#123f34] md:text-5xl">Dê o destino certo<br className="hidden md:block"/> ao que não serve mais.</h1></div><div className="max-w-sm"><p className="text-base leading-6 text-[#5b756c]">Veja apenas os receptores cadastrados e verificados pela administração.</p><PwaInstallButton className="mt-4 border-[#9acdbb] text-[#0b765d]" /></div></div>
-      <div id="buscar" className="rounded-[28px] border border-[#d7e7df] bg-white p-3 shadow-[0_18px_50px_rgba(16,79,64,.07)] md:p-4"><div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]"><label className="flex h-14 items-center gap-3 rounded-2xl bg-[#f1f7f4] px-4 text-[#4d6c62]"><Search size={20} className="text-[#0a8766]"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Busque por nome, endereço ou material" className="min-w-0 flex-1 bg-transparent text-base font-medium outline-none placeholder:text-[#8ba69b]"/><Button type="button" onClick={useLocation} variant="ghost" size="sm" className="hidden text-[#0a8766] sm:flex" disabled={locating}><LocateFixed size={18}/> {locating ? "Localizando…" : "Usar localização"}</Button></label><Button onClick={useLocation} className="rounded-xl bg-[#0b765d] text-white hover:bg-[#085e4a] md:hidden"><LocateFixed size={18}/> Usar localização</Button></div><label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-[#4a6c61]"><input checked={onlyPickup} onChange={e=>setOnlyPickup(e.target.checked)} type="checkbox" className="size-4 accent-[#0b765d]"/> Mostrar apenas quem informa coleta</label></div>
+      <div id="buscar" className="rounded-[28px] border border-[#d7e7df] bg-white p-3 shadow-[0_18px_50px_rgba(16,79,64,.07)] md:p-4"><div className="grid gap-3 lg:grid-cols-2"><label className="flex h-14 items-center gap-3 rounded-2xl bg-[#f1f7f4] px-4 text-[#4d6c62]"><Search size={20} className="text-[#0a8766]"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Busque pelo nome ou material" className="min-w-0 flex-1 bg-transparent text-base font-medium outline-none placeholder:text-[#8ba69b]"/></label><div className="flex gap-2"><label className="flex h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl bg-[#f1f7f4] px-4 text-[#4d6c62]"><MapPin size={20} className="shrink-0 text-[#0a8766]"/><input value={addressQuery} onChange={e=>setAddressQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void searchAddress();}}} placeholder="Seu endereço para achar o mais próximo" className="min-w-0 flex-1 bg-transparent text-base font-medium outline-none placeholder:text-[#8ba69b]"/></label><Button type="button" onClick={()=>void searchAddress()} disabled={addressSearching} className="h-14 shrink-0 rounded-xl bg-[#0b765d] px-3 text-white hover:bg-[#085e4a]"><Search size={18}/><span className="hidden sm:inline">{addressSearching ? "Buscando…" : "Buscar"}</span></Button></div></div><div className="mt-3 flex flex-wrap gap-2"><Button type="button" onClick={useLocation} variant="outline" className="rounded-xl border-[#b8dacc] text-[#0a765b]" disabled={locating}><LocateFixed size={18}/> {locating ? "Localizando…" : "Usar minha localização"}</Button><label className="flex cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#4a6c61]"><input checked={onlyPickup} onChange={e=>setOnlyPickup(e.target.checked)} type="checkbox" className="size-4 accent-[#0b765d]"/> Mostrar apenas quem informa coleta</label></div></div>
     </section>
 
     <section className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-8 sm:px-5 md:px-9 md:pb-10 xl:grid-cols-[410px_minmax(0,1fr)]">
@@ -128,6 +157,6 @@ function RequestDialog({ open, onOpenChange }: { open:boolean; onOpenChange:(ope
 
 function PlaceProfile({ open, onOpenChange, place }: { open:boolean; onOpenChange:(open:boolean)=>void; place:DisposalPlace|null }) {
   if (!place) return null;
-  const mapUrl = `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lng}#map=18/${place.lat}/${place.lng}`;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-3xl border-[#d7e8df] p-5 sm:p-7"><DialogHeader><div className="mb-2 flex items-start justify-between gap-4"><span className="grid size-12 place-items-center rounded-2xl bg-[#e3f6ee] text-[#0b8867]"><Recycle size={24}/></span><span className="rounded-lg bg-[#edf6f1] px-2.5 py-1 text-xs font-bold text-[#26705c]">{place.source}</span></div><DialogTitle className="text-2xl font-black text-[#184538]">{place.name}</DialogTitle><DialogDescription className="flex items-center gap-1 text-[#5e776e]"><MapPin size={15}/>{place.address}</DialogDescription></DialogHeader>{place.photoUrl && <img src={place.photoUrl} alt={`Foto de ${place.name}`} className="mt-4 h-48 w-full rounded-2xl object-cover"/>}<div className="mt-2 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl bg-[#f1f8f4] p-4"><p className="text-xs font-black uppercase tracking-wide text-[#0b8a68]">Materiais informados</p><div className="mt-2 flex flex-wrap gap-1.5">{place.materials.map((material)=><span key={material} className="rounded-md bg-white px-2 py-1 text-xs font-bold text-[#356c5b]">{material}</span>)}</div></div><div className="rounded-2xl bg-[#f1f8f4] p-4"><p className="text-xs font-black uppercase tracking-wide text-[#0b8a68]">Atendimento</p><p className="mt-2 flex gap-1 text-sm font-semibold text-[#45695d]"><Clock3 size={16}/>{place.hours}</p></div><div className="rounded-2xl bg-[#f1f8f4] p-4"><p className="text-xs font-black uppercase tracking-wide text-[#0b8a68]">Coleta</p><p className="mt-2 text-sm font-semibold text-[#45695d]">{place.pickup ? place.pickupConditions : "Este receptor não oferece coleta."}</p></div><div className="rounded-2xl bg-[#f1f8f4] p-4"><p className="text-xs font-black uppercase tracking-wide text-[#0b8a68]">Localização</p><p className="mt-2 text-sm font-semibold text-[#45695d]">{place.lat.toFixed(5)}, {place.lng.toFixed(5)}</p><a href={mapUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#0b765d] underline underline-offset-4">Abrir no mapa <ExternalLink size={14}/></a></div></div>{place.website&&<div className="mt-5"><Button asChild variant="outline" className="rounded-xl"><a href={place.website} target="_blank" rel="noreferrer"><ExternalLink size={17}/> Site do local</a></Button></div>}</DialogContent></Dialog>;
 }
