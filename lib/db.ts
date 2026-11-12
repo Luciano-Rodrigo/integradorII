@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import bcrypt from "bcryptjs";
 
 const globalForDb = globalThis as unknown as { pool?: Pool; schemaReady?: Promise<void> };
 
@@ -69,6 +70,16 @@ export async function ensureDatabase() {
         "INSERT INTO app_migrations (name) VALUES ('reset_registered_receptors_20261111') ON CONFLICT DO NOTHING RETURNING name",
       );
       if (reset.rowCount) await pool.query("DELETE FROM receptors");
+      const hasAdmin = await pool.query("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
+      const initialEmail = process.env.ADMIN_INITIAL_EMAIL?.trim().toLowerCase();
+      const initialPassword = process.env.ADMIN_INITIAL_PASSWORD;
+      if (!hasAdmin.rowCount && initialEmail && initialPassword && initialPassword.length >= 12) {
+        const passwordHash = await bcrypt.hash(initialPassword, 12);
+        await pool.query(
+          "INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, 'admin') ON CONFLICT (email) DO NOTHING",
+          ["Administrador", initialEmail, passwordHash],
+        );
+      }
     }).catch((error) => {
       globalForDb.schemaReady = undefined;
       throw error;

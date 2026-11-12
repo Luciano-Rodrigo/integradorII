@@ -4,10 +4,10 @@ Plataforma para localizar pontos de descarte de eletrônicos, baterias e outros 
 
 ## O que funciona
 
-- Busca locais reais de descarte com dados do OpenStreetMap e usa a localização autorizada pelo navegador.
-- Cria contas comuns por e-mail e senha.
+- Mostra no mapa apenas receptores cadastrados pela administração e usa a localização autorizada pelo navegador.
+- Cria contas comuns por e-mail e senha; o cadastro público não pode criar administradores.
 - Permite que uma pessoa autenticada solicite o cadastro de uma organização receptora.
-- Restringe a página `/configuracoes` a administradores, que podem aprovar ou recusar solicitações.
+- Restringe a página `/configuracoes` a administradores, que podem criar e listar acessos, criar administradores, cadastrar receptores e aprovar ou recusar solicitações.
 
 ## Configuração na Railway
 
@@ -16,10 +16,11 @@ Plataforma para localizar pontos de descarte de eletrônicos, baterias e outros 
 
    - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
    - `AUTH_SECRET=` uma chave longa e aleatória
-   - `ADMIN_EMAIL=` o e-mail da conta que será administradora
+   - `ADMIN_INITIAL_EMAIL=` e-mail do primeiro administrador
+   - `ADMIN_INITIAL_PASSWORD=` senha do primeiro administrador, com no mínimo 12 caracteres
 
 3. Faça o deploy a partir da branch `main`. A migração do banco é executada antes de iniciar o serviço.
-4. Crie uma conta com o e-mail definido em `ADMIN_EMAIL`; ela receberá o perfil de administrador.
+4. O primeiro administrador é criado pelo servidor apenas se ainda não houver nenhum admin. Depois, crie todos os demais acessos pela página **Configurações**.
 5. Em **Networking**, gere o domínio público do serviço.
 
-O mapa usa OpenStreetMap e Overpass. Informações que não existem na base pública, como condição de coleta, são exibidas como não informadas.
+O mapa base usa OpenStreetMap. Os marcadores exibidos são exclusivamente receptores cadastrados pela administração.

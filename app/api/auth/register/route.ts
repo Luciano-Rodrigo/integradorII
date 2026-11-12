@@ -12,10 +12,9 @@ export async function POST(request: Request) {
     }
     const normalizedEmail = email.trim().toLowerCase();
     const passwordHash = await bcrypt.hash(password, 12);
-    const role = process.env.ADMIN_EMAIL?.toLowerCase() === normalizedEmail ? "admin" : "user";
     const result = await pool.query(
       "INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role",
-      [name.trim(), normalizedEmail, passwordHash, role],
+      [name.trim(), normalizedEmail, passwordHash, "user"],
     );
     await setSession(result.rows[0]);
     return NextResponse.json({ user: result.rows[0] }, { status: 201 });
