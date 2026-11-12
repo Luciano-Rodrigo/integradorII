@@ -14,13 +14,9 @@ export async function GET(request: Request) {
 
   try {
     await ensureDatabase();
-    const latitudeRange = 0.12;
-    const longitudeRange = 0.12 / Math.max(Math.cos((lat * Math.PI) / 180), 0.1);
     const registered = await pool.query(
-      `SELECT id, organization_name, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website
-       FROM receptors
-       WHERE latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4`,
-      [lat - latitudeRange, lat + latitudeRange, lng - longitudeRange, lng + longitudeRange],
+      `SELECT id, organization_name, phone, address, city, latitude, longitude, materials, offers_pickup, pickup_conditions, opening_hours, website, photo_url
+       FROM receptors ORDER BY organization_name ASC`,
     );
     const places = registered.rows.map((receptor) => ({
       id: `receptor-${receptor.id}`,
@@ -31,6 +27,7 @@ export async function GET(request: Request) {
       materials: receptor.materials,
       phone: receptor.phone,
       website: receptor.website,
+      photoUrl: receptor.photo_url,
       hours: receptor.opening_hours,
       pickup: receptor.offers_pickup,
       pickupConditions: receptor.pickup_conditions || "Coleta disponível; confirme as condições diretamente com o receptor.",

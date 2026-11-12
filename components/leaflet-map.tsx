@@ -12,19 +12,23 @@ const pin = (active: boolean) => L.divIcon({
   iconAnchor: [21, 40],
 });
 
-function Recenter({ center }: { center: [number, number] }) {
+function FitRegisteredPlaces({ center, places }: { center: [number, number]; places: DisposalPlace[] }) {
   const map = useMap();
-  useEffect(() => { map.setView(center, Math.max(map.getZoom(), 13), { animate: true }); }, [center, map]);
+  useEffect(() => {
+    if (!places.length) { map.setView(center, Math.max(map.getZoom(), 13), { animate: true }); return; }
+    if (places.length === 1) { map.setView([places[0].lat, places[0].lng], 13, { animate: true }); return; }
+    map.fitBounds(L.latLngBounds(places.map((place) => [place.lat, place.lng])), { padding: [50, 50], maxZoom: 13, animate: true });
+  }, [center, places, map]);
   return null;
 }
 
 export default function LeafletMap({ center, places, selectedId, onSelect }: { center: [number, number]; places: DisposalPlace[]; selectedId?: string; onSelect: (place: DisposalPlace) => void }) {
-  return <MapContainer center={center} zoom={13} scrollWheelZoom className="h-[540px] w-full" aria-label="Mapa de locais de descarte">
+  return <MapContainer center={center} zoom={13} scrollWheelZoom className="h-[380px] w-full sm:h-[540px]" aria-label="Mapa de locais de descarte">
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-    <Recenter center={center} />
+    <FitRegisteredPlaces center={center} places={places} />
     <CircleMarker center={center} radius={8} pathOptions={{ color: "#0b765d", fillColor: "#35c498", fillOpacity: 1, weight: 3 }}><Popup>Sua localização</Popup></CircleMarker>
     {places.map((place) => <Marker key={place.id} position={[place.lat, place.lng]} icon={pin(place.id === selectedId)} eventHandlers={{ click: () => onSelect(place) }}>
-      <Popup><strong>{place.name}</strong><br/>{place.address}<br/><span className="text-xs">{place.materials.join(" · ")}</span></Popup>
+      <Popup>{place.photoUrl && <img src={place.photoUrl} alt="" className="mb-2 h-24 w-full rounded-lg object-cover"/>}<strong>{place.name}</strong><br/>{place.address}<br/><span className="text-xs">{place.materials.join(" · ")}</span></Popup>
     </Marker>)}
   </MapContainer>;
 }
