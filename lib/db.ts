@@ -54,12 +54,22 @@ const schema = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS receptors_location_idx ON receptors(latitude, longitude);
+  CREATE TABLE IF NOT EXISTS app_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `;
 
 export async function ensureDatabase() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL não está configurada.");
   if (!globalForDb.schemaReady) {
-    globalForDb.schemaReady = pool.query(schema).then(() => undefined).catch((error) => {
+    globalForDb.schemaReady = pool.query(schema).then(async () => {
+      // Requested reset: execute only once per database, never on future deploys.
+      const reset = await pool.query(
+        "INSERT INTO app_migrations (name) VALUES ('reset_registered_receptors_20261111') ON CONFLICT DO NOTHING RETURNING name",
+      );
+      if (reset.rowCount) await pool.query("DELETE FROM receptors");
+    }).catch((error) => {
       globalForDb.schemaReady = undefined;
       throw error;
     });
